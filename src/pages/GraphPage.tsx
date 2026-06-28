@@ -19,7 +19,8 @@ export default function GraphPage() {
   );
 
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const [subgraph, setSubgraph] = useState<GraphResponse | null>(null);
+  const [mergedGraph, setMergedGraph] = useState<GraphResponse | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ConceptResponse[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -39,13 +40,34 @@ export default function GraphPage() {
     setSelectedNode(node);
     try {
       const sub = await getNeighborhoodGraph(node.id);
-      setSubgraph(sub);
-    } catch {
-      toast.error('Failed to load subgraph');
-    }
-  }, []);
+      setMergedGraph((prev) => {
+        const base = prev || graph;
+        if (!base) return sub;
 
-  const activeGraph = subgraph || graph;
+        const nodeMap = new Map(base.nodes.map((n) => [n.id, n]));
+        for (const n of sub.nodes) {
+          if (!nodeMap.has(n.id)) nodeMap.set(n.id, n);
+        }
+
+        const edgeSet = new Set(base.edges.map((e) => `${e.source}→${e.target}`));
+        const edges = [...base.edges];
+        for (const e of sub.edges) {
+          const key = `${e.source}→${e.target}`;
+          if (!edgeSet.has(key)) {
+            edgeSet.add(key);
+            edges.push(e);
+          }
+        }
+
+        return { nodes: Array.from(nodeMap.values()), edges };
+      });
+      setIsExpanded(true);
+    } catch {
+      toast.error('Failed to load neighborhood');
+    }
+  }, [graph]);
+
+  const activeGraph = mergedGraph || graph;
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--grove-dark)' }}>
@@ -113,14 +135,14 @@ export default function GraphPage() {
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
-          {subgraph && (
+          {isExpanded && (
             <button
-              onClick={() => { setSubgraph(null); setSelectedNode(null); }}
+              onClick={() => { setMergedGraph(null); setIsExpanded(false); setSelectedNode(null); }}
               className="text-xs px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5"
               style={{ background: 'var(--grove-surface)', border: '1px solid var(--grove-border)', color: '#9CA3AF' }}
             >
               <ZoomOut className="w-3 h-3" />
-              Full Graph
+              Reset Graph
             </button>
           )}
           <button
@@ -170,12 +192,12 @@ export default function GraphPage() {
                   <span className="text-white font-semibold">{activeGraph.edges.length}</span>
                   <span className="text-gray-500 ml-1">edges</span>
                 </div>
-                {subgraph && (
+                {isExpanded && (
                   <div
                     className="px-3 py-1.5 text-xs rounded-full"
                     style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.35)', color: '#9D5FFF' }}
                   >
-                    Subgraph view
+                    Expanded view
                   </div>
                 )}
               </div>
@@ -252,7 +274,7 @@ export default function GraphPage() {
           >
             <NodeDetailPanel
               conceptId={selectedNode.id}
-              onClose={() => { setSelectedNode(null); setSubgraph(null); }}
+              onClose={() => { setSelectedNode(null); }}
             />
           </div>
         )}
