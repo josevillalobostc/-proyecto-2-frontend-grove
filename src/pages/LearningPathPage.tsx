@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Route, ChevronRight, Lock, CheckCircle } from 'lucide-react';
-import { getPublicWorkspace, getLearningPath } from '../api';
+import { getPublicWorkspace, getWorkspaces, createWorkspace, getLearningPath } from '../api';
 import type { ConceptResponse } from '../types';
 import Spinner from '../components/ui/Spinner';
 import ErrorMessage from '../components/ui/ErrorMessage';
@@ -17,13 +17,33 @@ export default function LearningPathPage() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    getPublicWorkspace()
-      .then((ws) => {
-        const workspaceId = ws.content[0]?.id;
-        if (!workspaceId) throw new Error('No public workspace found');
-        return getLearningPath(workspaceId);
-      })
-      .then(setConcepts)
+    const fetchPath = async () => {
+      let workspaceId: string | undefined;
+      const userWs = await getWorkspaces();
+      if (userWs.content && userWs.content.length > 0) {
+        workspaceId = userWs.content[0].id;
+      }
+
+      if (!workspaceId) {
+        const ws = await getPublicWorkspace();
+        workspaceId = ws.content[0]?.id;
+      }
+
+      if (!workspaceId) {
+        const newWs = await createWorkspace({
+          name: 'My Workspace',
+          description: 'Default workspace',
+          isPublic: true,
+        });
+        workspaceId = newWs.id;
+      }
+
+      if (!workspaceId) throw new Error('No workspace could be found or created');
+      const concepts = await getLearningPath(workspaceId);
+      setConcepts(concepts);
+    };
+
+    fetchPath()
       .catch((err) => {
         if (!controller.signal.aborted) {
           const msg = err?.response?.data?.message || err?.message || 'Failed to load learning path';

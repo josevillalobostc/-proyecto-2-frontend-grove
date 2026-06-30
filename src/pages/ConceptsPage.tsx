@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Map, Trash2 } from 'lucide-react';
-import { getConcepts, searchConcepts, createConcept, deleteConcept, getPublicWorkspace } from '../api';
+import { getConcepts, searchConcepts, createConcept, deleteConcept, getPublicWorkspace, getWorkspaces, createWorkspace } from '../api';
 import type { ConceptResponse, PageResponse } from '../types';
 import { useFetch } from '../hooks/useFetch';
 import { usePagination } from '../hooks/usePagination';
@@ -47,9 +47,27 @@ export default function ConceptsPage() {
   const handleCreate = async (formData: ConceptForm) => {
     setCreating(true);
     try {
-      const ws = await getPublicWorkspace();
-      const workspaceId = ws.content[0]?.id;
-      if (!workspaceId) throw new Error('No public workspace found');
+      let workspaceId: string | undefined;
+
+      const userWs = await getWorkspaces();
+      if (userWs.content && userWs.content.length > 0) {
+        workspaceId = userWs.content[0].id;
+      }
+
+      if (!workspaceId) {
+        const ws = await getPublicWorkspace();
+        workspaceId = ws.content[0]?.id;
+      }
+
+      if (!workspaceId) {
+        const newWs = await createWorkspace({
+          name: 'My Workspace',
+          description: 'Default workspace',
+          isPublic: true,
+        });
+        workspaceId = newWs.id;
+      }
+
       await createConcept({ ...formData, workspaceId });
       toast.success('Concept created!');
       setShowCreate(false);
