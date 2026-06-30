@@ -35,27 +35,37 @@ export default function NodeDetailPanel({ conceptId, onClose }: Props) {
   const [related, setRelated] = useState<ConceptResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [confidenceLoading, setConfidenceLoading] = useState(false);
-  const [showConfidenceMenu, setShowConfidenceMenu] = useState(false);
+  const [localConfidence, setLocalConfidence] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
     Promise.all([getConceptDetail(conceptId), getRelatedConcepts(conceptId)])
-      .then(([d, r]) => { setDetail(d); setRelated(r.slice(0, 6)); })
+      .then(([d, r]) => { setDetail(d); setRelated(r.slice(0, 6)); setLocalConfidence(d.confidenceLevel); })
       .catch(() => toast.error('Failed to load concept details'))
       .finally(() => setLoading(false));
   }, [conceptId]);
 
-  const handleSetConfidence = async (level: number) => {
+  const handleSetConfidenceApi = async (level: number) => {
     setConfidenceLoading(true);
-    setShowConfidenceMenu(false);
     try {
       const updated = await setConfidenceLevel(conceptId, level);
       setDetail(updated);
       toast.success('Confidence updated');
     } catch {
       toast.error('Failed to update confidence');
+      setLocalConfidence(detail?.confidenceLevel ?? 0);
     } finally {
       setConfidenceLoading(false);
+    }
+  };
+
+  const handleConfidenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalConfidence(Number(e.target.value));
+  };
+
+  const handleConfidenceCommit = () => {
+    if (localConfidence !== null && localConfidence !== detail?.confidenceLevel) {
+      handleSetConfidenceApi(localConfidence);
     }
   };
 
@@ -176,40 +186,25 @@ export default function NodeDetailPanel({ conceptId, onClose }: Props) {
         {/* Confidence level picker */}
         <div>
           <div className="text-xs font-semibold text-gray-500 tracking-wider mb-2">CONFIDENCE LEVEL</div>
-          <div className="relative">
-            <button
-              onClick={() => setShowConfidenceMenu(!showConfidenceMenu)}
-              disabled={confidenceLoading}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-gray-300 transition-all disabled:opacity-50"
-              style={{
-                background: 'var(--grove-dark)',
-                border: `1px solid ${showConfidenceMenu ? 'rgba(124,58,237,0.5)' : 'var(--grove-border)'}`,
-              }}
-            >
-              <span>{detail.confidenceLevel !== null ? `${detail.confidenceLevel}%` : 'Set level'}</span>
-              {showConfidenceMenu ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-            </button>
-            {showConfidenceMenu && (
-              <div
-                className="absolute bottom-full mb-1 left-0 right-0 rounded-xl overflow-hidden z-10"
-                style={{
-                  background: 'var(--grove-surface)',
-                  border: '1px solid rgba(124,58,237,0.3)',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                }}
-              >
-                {CONFIDENCE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleSetConfidence(opt.value)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-300 hover:bg-grove-border hover:text-white transition-colors"
-                  >
-                    <span>{opt.label}</span>
-                    <span className="text-gray-500 font-mono text-xs">{opt.value}%</span>
-                  </button>
-                ))}
-              </div>
+          <div className="flex items-center gap-2 mb-3">
+            {localConfidence !== null && (
+              <span className="text-gray-400 text-sm">{localConfidence}%</span>
             )}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={localConfidence ?? 0}
+            onChange={handleConfidenceChange}
+            onMouseUp={handleConfidenceCommit}
+            onTouchEnd={handleConfidenceCommit}
+            className="w-full accent-grove-green"
+            disabled={confidenceLoading}
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0</span>
+            <span>100</span>
           </div>
         </div>
       </div>

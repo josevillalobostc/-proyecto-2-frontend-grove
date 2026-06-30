@@ -35,6 +35,13 @@ export default function ConceptDetailPage() {
   const { data: detail, loading, error, refetch } = useFetch<ConceptDetailResponse>(
     () => getConceptDetail(id!), [id]
   );
+  
+  const [localConfidence, setLocalConfidence] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (detail) setLocalConfidence(detail.confidenceLevel);
+  }, [detail]);
+
   const { data: related } = useFetch<ConceptResponse[]>(() => getRelatedConcepts(id!), [id]);
   const { data: prerequisites } = useFetch<ConceptResponse[]>(() => getAllPrerequisites(id!), [id]);
   const { data: flashcards, refetch: refetchFlashcards } = useFetch<FlashcardResponse[]>(() => getFlashcardsForConcept(id!), [id]);
@@ -90,13 +97,23 @@ export default function ConceptDetailPage() {
     }
   };
 
-  const handleSetConfidence = async (level: number) => {
+  const handleSetConfidenceApi = async (level: number) => {
     try {
       await setConfidenceLevel(id!, level);
-      refetch();
       toast.success('Confidence updated');
     } catch {
       toast.error('Failed to update confidence');
+      setLocalConfidence(detail?.confidenceLevel ?? 0);
+    }
+  };
+
+  const handleConfidenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalConfidence(Number(e.target.value));
+  };
+
+  const handleConfidenceCommit = () => {
+    if (localConfidence !== null && localConfidence !== detail?.confidenceLevel) {
+      handleSetConfidenceApi(localConfidence);
     }
   };
 
@@ -319,16 +336,18 @@ export default function ConceptDetailPage() {
             <h3 className="text-gray-400 text-xs font-semibold mb-3">CONFIDENCE LEVEL</h3>
             <div className="flex items-center gap-2 mb-3">
               <ConfidenceLevelBadge badge={badge} />
-              {detail.confidenceLevel !== null && (
-                <span className="text-gray-400 text-sm">{detail.confidenceLevel}%</span>
+              {localConfidence !== null && (
+                <span className="text-gray-400 text-sm">{localConfidence}%</span>
               )}
             </div>
             <input
               type="range"
               min={0}
               max={100}
-              value={detail.confidenceLevel ?? 0}
-              onChange={(e) => handleSetConfidence(Number(e.target.value))}
+              value={localConfidence ?? 0}
+              onChange={handleConfidenceChange}
+              onMouseUp={handleConfidenceCommit}
+              onTouchEnd={handleConfidenceCommit}
               className="w-full accent-grove-green"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
