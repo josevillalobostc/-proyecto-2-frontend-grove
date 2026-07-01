@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, RefreshCw, ZoomOut, Plus, Minus, Settings } from 'lucide-react';
-import { getPublicGraph, getNeighborhoodGraph, searchConcepts } from '../api';
-import type { GraphNode, GraphResponse, ConceptResponse } from '../types';
+import { getPublicGraph, getNeighborhoodGraph, searchConcepts, getMyWorkspaces, getPublicWorkspace, getGraphByWorkspace } from '../api';
+import type { GraphNode, GraphResponse, ConceptResponse, WorkspaceResponse } from '../types';
 import { useFetch } from '../hooks/useFetch';
 import { useDebounce } from '../hooks/useDebounce';
 import KnowledgeGraph, { type KnowledgeGraphHandle } from '../components/graph/KnowledgeGraph';
@@ -16,8 +16,26 @@ export default function GraphPage() {
   const navigate = useNavigate();
   const graphRef = useRef<KnowledgeGraphHandle>(null);
 
+  const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
+
+  useEffect(() => {
+    Promise.all([getMyWorkspaces(0, 100), getPublicWorkspace()])
+      .then(([myRes, pubRes]) => {
+        const all = [...(myRes.content || []), ...(pubRes.content || [])];
+        const unique = Array.from(new Map(all.map(w => [w.id, w])).values());
+        setWorkspaces(unique);
+        if (unique.length > 0) {
+          const pub = unique.find(w => w.name === 'Grove Global Community' || w.isPublic);
+          setSelectedWorkspaceId(pub ? pub.id : unique[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const { data: graph, loading, error, refetch } = useFetch<GraphResponse>(
-    () => getPublicGraph()
+    () => selectedWorkspaceId ? getGraphByWorkspace(selectedWorkspaceId) : getPublicGraph(),
+    [selectedWorkspaceId]
   );
 
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -162,6 +180,29 @@ export default function GraphPage() {
             </div>
           )}
         </div>
+
+        {/* Workspace Select */}
+        <select
+          value={selectedWorkspaceId}
+          onChange={(e) => {
+            setSelectedWorkspaceId(e.target.value);
+            setMergedGraph(null);
+            setIsExpanded(false);
+            setSelectedNode(null);
+          }}
+          className="bg-grove-surface border border-grove-border text-white text-sm rounded-full px-4 py-1.5 focus:outline-none focus:border-grove-green/50 appearance-none transition-colors hover:border-grove-green/30"
+          style={{ 
+            paddingRight: '32px', 
+            backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>')`, 
+            backgroundRepeat: 'no-repeat', 
+            backgroundPosition: 'right 10px center' 
+          }}
+        >
+          <option value="" disabled>Select Workspace...</option>
+          {workspaces.map((ws) => (
+            <option key={ws.id} value={ws.id}>{ws.name}</option>
+          ))}
+        </select>
 
         {/* Depth indicator */}
         <div
