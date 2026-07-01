@@ -10,40 +10,49 @@ import toast from 'react-hot-toast';
 
 export default function LearningPathPage() {
   const navigate = useNavigate();
+  const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
   const [concepts, setConcepts] = useState<ConceptResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const fetchWorkspaces = async () => {
+      try {
+        const myWs = await getMyWorkspaces();
+        const pubWs = await getPublicWorkspace();
+        const combined = [...(myWs.content || []), ...(pubWs.content || [])];
+        const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+        
+        if (unique.length === 0) {
+          const newWs = await createWorkspace({
+            name: 'My Workspace',
+            description: 'Default workspace',
+            isPublic: true,
+          });
+          unique.push(newWs);
+        }
+        
+        setWorkspaces(unique);
+        if (unique.length > 0) {
+          setSelectedWorkspaceId(unique[0].id);
+        }
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Failed to load workspaces';
+        setError(msg);
+        toast.error(msg);
+      }
+    };
+    fetchWorkspaces();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedWorkspaceId) return;
+
     const controller = new AbortController();
     setLoading(true);
     const fetchPath = async () => {
-      let workspaceId: string | undefined;
-
-      // Try user's own workspaces first (member-guaranteed)
-      try {
-        const myWs = await getMyWorkspaces();
-        if (myWs.content && myWs.content.length > 0) {
-          workspaceId = myWs.content[0].id;
-        }
-      } catch { /* fall through */ }
-
-      if (!workspaceId) {
-        const ws = await getPublicWorkspace();
-        workspaceId = ws.content[0]?.id;
-      }
-
-      if (!workspaceId) {
-        const newWs = await createWorkspace({
-          name: 'My Workspace',
-          description: 'Default workspace',
-          isPublic: true,
-        });
-        workspaceId = newWs.id;
-      }
-
-      if (!workspaceId) throw new Error('No workspace could be found or created');
-      const concepts = await getLearningPath(workspaceId);
+      const concepts = await getLearningPath(selectedWorkspaceId);
       setConcepts(concepts);
     };
 
@@ -59,9 +68,9 @@ export default function LearningPathPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [selectedWorkspaceId]);
 
-  if (loading) return <Spinner fullScreen />;
+  if (loading && !workspaces.length) return <Spinner fullScreen />;
   if (error) return (
     <div className="flex items-center justify-center h-full">
       <ErrorMessage message={error} onRetry={() => window.location.reload()} />
@@ -71,19 +80,37 @@ export default function LearningPathPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-grove-green/10 border border-grove-green/20 flex items-center justify-center">
-          <Route className="w-5 h-5 text-grove-green" />
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-grove-green/10 border border-grove-green/20 flex items-center justify-center">
+            <Route className="w-5 h-5 text-grove-green" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Learning Path</h1>
+            <p className="text-gray-400 text-sm">
+              {concepts.length} concepts, topologically ordered from fundamentals to advanced
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-white">Learning Path</h1>
-          <p className="text-gray-400 text-sm">
-            {concepts.length} concepts, topologically ordered from fundamentals to advanced
-          </p>
-        </div>
+        
+        {workspaces.length > 0 && (
+          <select
+            value={selectedWorkspaceId}
+            onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+            className="grove-input py-2 px-3 bg-grove-surface border-grove-border text-sm max-w-xs"
+          >
+            {workspaces.map((ws) => (
+              <option key={ws.id} value={ws.id}>
+                {ws.name} {ws.isPublic ? '(Public)' : '(Private)'}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {concepts.length === 0 ? (
+      {loading ? (
+        <div className="py-12"><Spinner /></div>
+      ) : concepts.length === 0 ? (
         <div className="text-center py-16 text-gray-400">No concepts in this workspace yet</div>
       ) : (
         <div className="relative">

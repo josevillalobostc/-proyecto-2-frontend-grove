@@ -125,8 +125,9 @@ export default function ConceptDetailPage() {
       await createComment({ content: commentText, conceptId: id! });
       setCommentText('');
       refetchComments();
-    } catch {
-      toast.error('Failed to add comment');
+    } catch (err: any) {
+      console.error('Add comment error:', err);
+      toast.error(err?.response?.data?.message || err.message || 'Failed to add comment');
     } finally {
       setCommentLoading(false);
     }
