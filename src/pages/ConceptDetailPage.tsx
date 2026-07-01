@@ -5,7 +5,7 @@ import {
   getConceptDetail, getRelatedConcepts, getFlashcardsForConcept, getAllPrerequisites,
   updateConcept, addFlashcardToConcept, setConfidenceLevel, getRootComments, createComment, deleteComment,
 } from '../api';
-import type { ConceptDetailResponse, ConceptResponse, FlashcardResponse, CommentResponse } from '../types';
+import type { ConceptDetailResponse, ConceptResponse, FlashcardResponse, CommentResponse, PageResponse } from '../types';
 import { getConfidenceBadge } from '../types';
 import { useFetch } from '../hooks/useFetch';
 import { ConfidenceLevelBadge, TagBadge } from '../components/ui/Badge';
@@ -45,7 +45,8 @@ export default function ConceptDetailPage() {
   const { data: related } = useFetch<ConceptResponse[]>(() => getRelatedConcepts(id!), [id]);
   const { data: prerequisites } = useFetch<ConceptResponse[]>(() => getAllPrerequisites(id!), [id]);
   const { data: flashcards, refetch: refetchFlashcards } = useFetch<FlashcardResponse[]>(() => getFlashcardsForConcept(id!), [id]);
-  const { data: comments, refetch: refetchComments } = useFetch<CommentResponse[]>(() => getRootComments(id!), [id]);
+  const { data: commentsPage, refetch: refetchComments } = useFetch<PageResponse<CommentResponse>>(() => getRootComments(id!), [id]);
+  const comments = commentsPage?.content;
 
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
