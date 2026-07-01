@@ -267,7 +267,7 @@ export default function FlashcardsPage() {
                     <span className="text-sm text-gray-400 font-medium">{currentCard?.conceptTitle}</span>
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/concepts/${currentCard?.id}`); }}
+                    onClick={(e) => { e.stopPropagation(); if (currentCard?.conceptId) navigate(`/concepts/${currentCard.conceptId}`); }}
                     className="flex items-center gap-1 text-xs text-gray-500 hover:text-grove-green transition-colors"
                   >
                     <ExternalLink className="w-3 h-3" />

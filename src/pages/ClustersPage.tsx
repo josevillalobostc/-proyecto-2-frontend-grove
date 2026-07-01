@@ -5,6 +5,7 @@ import { getTags, getConceptsByCluster } from '../api';
 import type { Tag, ConceptResponse, PageResponse } from '../types';
 import { useFetch } from '../hooks/useFetch';
 import { usePagination } from '../hooks/usePagination';
+import { useDebounce } from '../hooks/useDebounce';
 import { TagBadge } from '../components/ui/Badge';
 import Spinner from '../components/ui/Spinner';
 import ErrorMessage from '../components/ui/ErrorMessage';
@@ -16,6 +17,8 @@ export default function ClustersPage() {
   const selectedTagId = searchParams.get('tagId');
   const navigate = useNavigate();
   const { page, size, setPage, setSize } = usePagination(25);
+  const [tagFilter, setTagFilter] = useState('');
+  const debouncedTagFilter = useDebounce(tagFilter, 200);
 
   const { data: tagsData, loading: tagsLoading } = useFetch<PageResponse<Tag>>(
     () => getTags(0, 100)
@@ -34,8 +37,11 @@ export default function ClustersPage() {
       .finally(() => setConceptsLoading(false));
   }, [selectedTagId, page, size]);
 
-  const tags = tagsData?.content || [];
-  const selectedTag = tags.find((t) => t.id === selectedTagId);
+  const allTags = tagsData?.content || [];
+  const tags = debouncedTagFilter.trim()
+    ? allTags.filter((t) => t.name.toLowerCase().includes(debouncedTagFilter.toLowerCase()))
+    : allTags;
+  const selectedTag = allTags.find((t) => t.id === selectedTagId);
 
   return (
     <div className="h-full flex">
@@ -49,6 +55,8 @@ export default function ClustersPage() {
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
             <input
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
               placeholder="Filter clusters..."
               className="grove-input w-full pl-8 text-xs h-8"
             />

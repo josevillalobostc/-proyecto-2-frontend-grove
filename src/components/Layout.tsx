@@ -3,8 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import {
   Network, BookOpen, Route, LogOut, Layers,
-  Archive, HelpCircle, Plus, GitBranch, Sparkles,
-  Sun, Moon,
+  Archive, Plus, GitBranch, Sparkles, Sun, Moon, HelpCircle,
 } from 'lucide-react';
 import { getConcepts } from '../api';
 import type { ConceptResponse } from '../types';
@@ -25,78 +24,124 @@ export default function Layout() {
   const [recentConcepts, setRecentConcepts] = useState<ConceptResponse[]>([]);
 
   useEffect(() => {
-    getConcepts(0, 3, 'title,asc')
+    getConcepts(0, 5, 'title,asc')
       .then((data) => setRecentConcepts(data.content))
       .catch(() => {});
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
+
+  const userInitial = user?.username?.[0]?.toUpperCase() || 'U';
 
   return (
-    <div className="flex h-screen bg-grove-dark overflow-hidden">
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--grove-dark)', overflow: 'hidden' }}>
 
-      {/* ── Sidebar ──────────────────────────────────────────────────── */}
-      <aside
-        className="w-64 flex flex-col shrink-0"
-        style={{
-          background: 'var(--grove-surface)',
-          borderRight: '1px solid var(--grove-border)',
-        }}
-      >
-        {/* Logo + theme toggle */}
-        <div className="flex items-center gap-3 px-5 pt-5 pb-4">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #9D5FFF)' }}
-          >
-            <Sparkles className="w-4 h-4" style={{ color: '#fff' }} />
+      {/* ── Sidebar ──────────────────────────────────────────────── */}
+      <aside style={{
+        width: 220,
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--grove-surface)',
+        borderRight: '1px solid var(--grove-border)',
+        overflow: 'hidden',
+      }}>
+
+        {/* Logo */}
+        <div style={{ padding: '18px 14px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+            background: 'linear-gradient(135deg, #7C3AED 0%, #9D5FFF 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
+          }}>
+            <Sparkles style={{ width: 14, height: 14, color: '#fff' }} />
           </div>
-          <span className="text-white font-bold text-lg tracking-tight">Grove</span>
-
-          {/* Theme toggle */}
+          <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em' }}>
+            Grove
+          </span>
           <button
             onClick={toggle}
-            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            className="ml-auto p-2 rounded-xl transition-all"
+            title={theme === 'light' ? 'Dark mode' : 'Light mode'}
             style={{
-              background: 'var(--hover-bg)',
-              border: '1px solid var(--grove-border)',
-              color: 'var(--text-secondary)',
+              marginLeft: 'auto', width: 26, height: 26, borderRadius: 6,
+              background: 'var(--hover-bg)', border: '1px solid var(--grove-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s',
+              flexShrink: 0,
             }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--grove-green)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)';
-            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--grove-accent)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
             {theme === 'light'
-              ? <Moon className="w-3.5 h-3.5" />
-              : <Sun  className="w-3.5 h-3.5" />
-            }
+              ? <Moon style={{ width: 12, height: 12 }} />
+              : <Sun  style={{ width: 12, height: 12 }} />}
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="px-3 space-y-0.5">
+        {/* New Note CTA */}
+        <div style={{ padding: '0 10px 10px' }}>
+          <button
+            onClick={() => navigate('/concepts')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+              background: 'var(--hover-bg)', border: '1px solid var(--grove-border)',
+              color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(124,58,237,0.12)';
+              e.currentTarget.style.borderColor = 'rgba(124,58,237,0.35)';
+              e.currentTarget.style.color = 'var(--grove-accent)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'var(--hover-bg)';
+              e.currentTarget.style.borderColor = 'var(--grove-border)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <Plus style={{ width: 14, height: 14 }} />
+            New note
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav style={{ padding: '0 6px', flex: 'none' }}>
           {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-medium ${
-                  isActive
-                    ? 'bg-grove-green/15 text-grove-green border border-grove-green/20'
-                    : 'text-gray-400 hover:text-white hover:bg-grove-border'
-                }`
-              }
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: 9,
+                padding: '7px 10px', borderRadius: 7, margin: '1px 0',
+                fontSize: 13.5, fontWeight: isActive ? 600 : 450,
+                textDecoration: 'none',
+                color: isActive ? 'var(--grove-accent)' : 'var(--text-secondary)',
+                background: isActive ? 'rgba(124,58,237,0.10)' : 'transparent',
+                transition: 'all 0.12s',
+              })}
+              onMouseEnter={e => {
+                const a = e.currentTarget as HTMLAnchorElement;
+                if (!a.classList.contains('active')) {
+                  a.style.background = 'var(--hover-bg)';
+                  a.style.color = 'var(--text-primary)';
+                }
+              }}
+              onMouseLeave={e => {
+                const a = e.currentTarget as HTMLAnchorElement;
+                if (!a.getAttribute('aria-current')) {
+                  a.style.background = '';
+                  a.style.color = '';
+                }
+              }}
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-grove-green' : ''}`} />
+                  <Icon style={{
+                    width: 15, height: 15, flexShrink: 0,
+                    color: isActive ? 'var(--grove-accent)' : 'var(--text-muted)',
+                  }} />
                   <span>{label}</span>
                 </>
               )}
@@ -104,78 +149,116 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Recent Notes */}
-        <div className="flex-1 px-4 pt-5 overflow-hidden flex flex-col min-h-0">
-          <div
-            className="text-xs font-semibold tracking-widest mb-3"
-            style={{ color: 'rgba(124,58,237,0.55)' }}
-          >
-            RECENT NOTES
+        {/* Divider */}
+        <div style={{ height: 1, background: 'var(--grove-border)', margin: '10px 14px' }} />
+
+        {/* Recent notes */}
+        <div style={{ flex: 1, padding: '0 10px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{
+            fontSize: 10.5, fontWeight: 600, letterSpacing: '0.1em',
+            color: 'var(--text-muted)', marginBottom: 4, padding: '0 4px',
+            textTransform: 'uppercase',
+          }}>
+            Recent
           </div>
-          <div className="space-y-0.5 overflow-y-auto">
-            {recentConcepts.map((concept) => (
-              <button
-                key={concept.id}
-                onClick={() => navigate(`/concepts/${concept.id}`)}
-                className="w-full text-left px-2 py-2 rounded-lg hover:bg-grove-border transition-colors group"
-              >
-                <div className="text-sm text-gray-300 group-hover:text-white transition-colors truncate font-medium">
-                  {concept.title}
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {concept.connectionCount} connections
-                </div>
-              </button>
-            ))}
-            {recentConcepts.length === 0 && (
-              <p className="text-xs text-gray-500 px-2">No notes yet</p>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {recentConcepts.length === 0 ? (
+              <div style={{ padding: '6px 4px', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                No notes yet
+              </div>
+            ) : (
+              recentConcepts.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => navigate(`/concepts/${c.id}`)}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '5px 8px',
+                    borderRadius: 6, background: 'transparent', border: 'none',
+                    cursor: 'pointer', display: 'block', marginBottom: 1,
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-bg)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div style={{
+                    fontSize: 13, color: 'var(--text-secondary)', fontWeight: 450,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {c.title}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                    {c.connectionCount} connections
+                  </div>
+                </button>
+              ))
             )}
           </div>
         </div>
 
-        {/* New Atomic Note CTA */}
-        <div className="px-4 pb-4 pt-3">
-          <button
-            onClick={() => navigate('/concepts')}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-            style={{
-              background: 'linear-gradient(135deg, #7C3AED, #9D5FFF)',
-              boxShadow: '0 4px 14px rgba(124,58,237,0.4)',
-              color: '#ffffff',
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            New Atomic Note
-          </button>
-        </div>
-
         {/* Footer */}
-        <div
-          className="px-3 py-3 space-y-0.5"
-          style={{ borderTop: '1px solid var(--grove-border)' }}
-        >
+        <div style={{ borderTop: '1px solid var(--grove-border)', padding: '8px 6px' }}>
+          {/* User info */}
           {user && (
-            <div className="px-3 py-2 mb-1">
-              <div className="text-sm text-white font-medium truncate">{user.username}</div>
-              <div className="text-xs text-gray-500 truncate">{user.email || 'Member'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 8px', marginBottom: 2 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700, color: 'var(--grove-accent)',
+              }}>
+                {userInitial}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {user.username}
+                </div>
+                <div style={{
+                  fontSize: 11, color: 'var(--text-muted)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {user.email || user.role?.replace('ROLE_', '') || 'Member'}
+                </div>
+              </div>
             </div>
           )}
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-grove-green transition-colors">
-            <HelpCircle className="w-4 h-4 shrink-0" />
-            Help
-          </button>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 transition-colors"
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            Logout
-          </button>
+
+          {/* Footer nav */}
+          {[
+            { icon: HelpCircle, label: 'Help', onClick: () => {} },
+            { icon: LogOut, label: 'Sign out', onClick: handleLogout, danger: true },
+          ].map(({ icon: Icon, label, onClick, danger }) => (
+            <button
+              key={label}
+              onClick={onClick}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+                padding: '7px 8px', borderRadius: 7, cursor: 'pointer',
+                background: 'transparent', border: 'none',
+                fontSize: 13, fontWeight: 450,
+                color: danger ? '#f87171' : 'var(--text-muted)',
+                transition: 'all 0.12s', textAlign: 'left',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'var(--hover-bg)';
+                e.currentTarget.style.color = danger ? '#f87171' : 'var(--text-primary)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = danger ? '#f87171' : 'var(--text-muted)';
+              }}
+            >
+              <Icon style={{ width: 14, height: 14, flexShrink: 0 }} />
+              {label}
+            </button>
+          ))}
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main style={{ flex: 1, overflow: 'auto' }}>
         <Outlet />
       </main>
     </div>

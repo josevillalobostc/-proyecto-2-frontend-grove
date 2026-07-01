@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Route, ChevronRight, Lock, CheckCircle } from 'lucide-react';
-import { getPublicWorkspace, getWorkspaces, createWorkspace, getLearningPath } from '../api';
+import { getPublicWorkspace, getMyWorkspaces, createWorkspace, getLearningPath } from '../api';
 import type { ConceptResponse } from '../types';
 import Spinner from '../components/ui/Spinner';
 import ErrorMessage from '../components/ui/ErrorMessage';
@@ -19,10 +19,14 @@ export default function LearningPathPage() {
     setLoading(true);
     const fetchPath = async () => {
       let workspaceId: string | undefined;
-      const userWs = await getWorkspaces();
-      if (userWs.content && userWs.content.length > 0) {
-        workspaceId = userWs.content[0].id;
-      }
+
+      // Try user's own workspaces first (member-guaranteed)
+      try {
+        const myWs = await getMyWorkspaces();
+        if (myWs.content && myWs.content.length > 0) {
+          workspaceId = myWs.content[0].id;
+        }
+      } catch { /* fall through */ }
 
       if (!workspaceId) {
         const ws = await getPublicWorkspace();

@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Search, RefreshCw, ZoomOut, Plus, Minus, Pencil } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Search, RefreshCw, ZoomOut, Plus, Minus, Settings } from 'lucide-react';
 import { getPublicGraph, getNeighborhoodGraph, searchConcepts } from '../api';
 import type { GraphNode, GraphResponse, ConceptResponse } from '../types';
 import { useFetch } from '../hooks/useFetch';
 import { useDebounce } from '../hooks/useDebounce';
-import KnowledgeGraph from '../components/graph/KnowledgeGraph';
+import KnowledgeGraph, { type KnowledgeGraphHandle } from '../components/graph/KnowledgeGraph';
 import NodeDetailPanel from '../components/graph/NodeDetailPanel';
 import Spinner from '../components/ui/Spinner';
 import ErrorMessage from '../components/ui/ErrorMessage';
@@ -14,6 +14,8 @@ import { useNavigate } from 'react-router-dom';
 
 export default function GraphPage() {
   const navigate = useNavigate();
+  const graphRef = useRef<KnowledgeGraphHandle>(null);
+
   const { data: graph, loading, error, refetch } = useFetch<GraphResponse>(
     () => getPublicGraph()
   );
@@ -24,7 +26,11 @@ export default function GraphPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ConceptResponse[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   const debouncedSearch = useDebounce(searchQuery, 400);
+
   useEffect(() => {
     if (!debouncedSearch.trim()) { setSearchResults(null); return; }
     setSearchLoading(true);
@@ -35,6 +41,18 @@ export default function GraphPage() {
       .finally(() => setSearchLoading(false));
     return () => controller.abort();
   }, [debouncedSearch]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchResults(null);
+        setShowSearch(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const handleNodeClick = useCallback(async (node: GraphNode) => {
     setSelectedNode(node);
@@ -71,28 +89,47 @@ export default function GraphPage() {
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--grove-dark)' }}>
-      {/* Top search bar */}
+      {/* Top bar — positioned above graph and must overflow visible */}
       <div
+        style={{
+          borderBottom: '1px solid var(--grove-border)',
+          background: 'var(--surface-overlay-80)',
+          backdropFilter: 'blur(8px)',
+          position: 'relative',
+          zIndex: 100,
+          flexShrink: 0,
+        }}
         className="flex items-center gap-3 px-4 py-3"
-        style={{ borderBottom: '1px solid var(--grove-border)', background: 'var(--surface-overlay-80)', backdropFilter: 'blur(8px)' }}
       >
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        {/* Search — portal-positioned dropdown to avoid clipping */}
+        <div ref={searchRef} style={{ position: 'relative', flex: 1, maxWidth: 448 }}>
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            style={{ zIndex: 1 }}
+          />
           <input
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setShowSearch(true); }}
+            onFocus={() => setShowSearch(true)}
             placeholder="Search concepts..."
             className="grove-input w-full pl-9 h-9 text-sm"
             style={{ borderRadius: '20px' }}
           />
-          {(searchResults !== null || searchLoading) && searchQuery.trim() && (
+          {showSearch && searchQuery.trim() && (searchResults !== null || searchLoading) && (
             <div
-              className="absolute top-full mt-1 left-0 right-0 rounded-xl overflow-hidden z-20 max-h-64 overflow-y-auto"
               style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: 4,
                 background: 'var(--grove-surface)',
                 border: '1px solid var(--grove-border)',
+                borderRadius: 12,
                 boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+                zIndex: 9999,
+                maxHeight: 280,
+                overflowY: 'auto',
               }}
             >
               {searchLoading ? (
@@ -104,10 +141,11 @@ export default function GraphPage() {
                   <button
                     key={c.id}
                     onClick={() => {
-                      const node = graph?.nodes.find((n) => n.id === c.id);
+                      const node = activeGraph?.nodes.find((n) => n.id === c.id);
                       if (node) handleNodeClick(node);
                       setSearchQuery('');
                       setSearchResults(null);
+                      setShowSearch(false);
                     }}
                     className="w-full text-left px-4 py-2.5 hover:bg-grove-border transition-colors"
                     style={{ borderBottom: '1px solid rgba(38,30,79,0.5)' }}
@@ -125,7 +163,7 @@ export default function GraphPage() {
           )}
         </div>
 
-        {/* Depth indicator (decorative) */}
+        {/* Depth indicator */}
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
           style={{ background: 'var(--grove-surface)', border: '1px solid var(--grove-border)' }}
@@ -156,14 +194,15 @@ export default function GraphPage() {
       </div>
 
       {/* Graph + panel */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex" style={{ overflow: 'hidden', position: 'relative' }}>
         {/* Graph canvas */}
         <div className="flex-1 relative" style={{ background: 'var(--grove-dark)' }}>
-          {/* Subtle radial gradient overlay */}
+          {/* Subtle radial gradient */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background: 'radial-gradient(ellipse at 50% 50%, rgba(124,58,237,0.04) 0%, transparent 70%)',
+              zIndex: 0,
             }}
           />
 
@@ -177,7 +216,7 @@ export default function GraphPage() {
           {activeGraph && !loading && (
             <>
               {/* Stats overlay */}
-              <div className="absolute top-4 left-4 z-10 flex gap-2">
+              <div className="absolute top-4 left-4 flex gap-2" style={{ zIndex: 10 }}>
                 <div
                   className="px-3 py-1.5 text-xs rounded-full"
                   style={{ background: 'var(--surface-overlay-80)', border: '1px solid var(--grove-border)', backdropFilter: 'blur(4px)' }}
@@ -202,18 +241,19 @@ export default function GraphPage() {
                 )}
               </div>
 
-              {/* Right: zoom controls */}
+              {/* Zoom controls */}
               <div
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1"
-                style={{ transform: 'translateY(-50%)' }}
+                className="absolute flex flex-col gap-1"
+                style={{ right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}
               >
                 {[
-                  { icon: <Plus className="w-4 h-4" />, title: 'Zoom in' },
-                  { icon: <Minus className="w-4 h-4" />, title: 'Zoom out' },
+                  { icon: <Plus className="w-4 h-4" />, title: 'Zoom in', onClick: () => graphRef.current?.zoomIn() },
+                  { icon: <Minus className="w-4 h-4" />, title: 'Zoom out', onClick: () => graphRef.current?.zoomOut() },
                 ].map((btn, i) => (
                   <button
                     key={i}
                     title={btn.title}
+                    onClick={btn.onClick}
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-white transition-all"
                     style={{
                       background: 'var(--surface-overlay-80)',
@@ -226,7 +266,8 @@ export default function GraphPage() {
                 ))}
                 <div style={{ height: '1px', background: 'var(--grove-border)', margin: '2px 0' }} />
                 <button
-                  title="Settings"
+                  title="Reset zoom"
+                  onClick={() => graphRef.current?.resetZoom()}
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-white transition-all"
                   style={{
                     background: 'var(--surface-overlay-80)',
@@ -234,11 +275,12 @@ export default function GraphPage() {
                     backdropFilter: 'blur(4px)',
                   }}
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <Settings className="w-4 h-4" />
                 </button>
               </div>
 
               <KnowledgeGraph
+                ref={graphRef}
                 nodes={activeGraph.nodes}
                 edges={activeGraph.edges}
                 onNodeClick={handleNodeClick}
@@ -248,7 +290,7 @@ export default function GraphPage() {
           )}
 
           {/* Capture Note floating button */}
-          <div className="absolute bottom-6 left-1/2 z-10" style={{ transform: 'translateX(-50%)' }}>
+          <div className="absolute bottom-6 left-1/2" style={{ transform: 'translateX(-50%)', zIndex: 10 }}>
             <button
               onClick={() => navigate('/concepts')}
               className="flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
@@ -260,8 +302,7 @@ export default function GraphPage() {
                 boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
               }}
             >
-              <Pencil className="w-4 h-4" />
-              Capture Note
+              ✎ Capture Note
             </button>
           </div>
         </div>
@@ -270,7 +311,7 @@ export default function GraphPage() {
         {selectedNode && (
           <div
             className="w-80 overflow-hidden"
-            style={{ borderLeft: '1px solid var(--grove-border)', background: 'var(--grove-surface)' }}
+            style={{ borderLeft: '1px solid var(--grove-border)', background: 'var(--grove-surface)', flexShrink: 0 }}
           >
             <NodeDetailPanel
               conceptId={selectedNode.id}

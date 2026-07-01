@@ -4,16 +4,42 @@ interface SpinnerProps {
 }
 
 export default function Spinner({ fullScreen, size = 'md' }: SpinnerProps) {
-  const sizeClass = { sm: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-12 h-12' }[size];
+  const dim = { sm: 20, md: 32, lg: 44 }[size];
+  const thickness = { sm: 2, md: 3, lg: 3 }[size];
+
   const spinner = (
-    <div className={`${sizeClass} border-4 border-grove-green/30 border-t-grove-green rounded-full animate-spin`} />
+    <div
+      style={{
+        width: dim,
+        height: dim,
+        borderRadius: '50%',
+        border: `${thickness}px solid rgba(124,58,237,0.18)`,
+        borderTopColor: 'var(--grove-accent)',
+        animation: 'spin 0.7s linear infinite',
+        flexShrink: 0,
+      }}
+    />
   );
+
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-grove-dark">
-        {spinner}
+      <div style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--grove-dark)',
+        zIndex: 50,
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          {spinner}
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>Loading…</span>
+        </div>
       </div>
     );
   }
-  return <div className="flex justify-center items-center py-8">{spinner}</div>;
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '32px 0' }}>
+      {spinner}
+    </div>
+  );
 }

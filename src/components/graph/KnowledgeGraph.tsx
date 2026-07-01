@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import * as d3 from 'd3';
 import type { GraphNode, GraphEdge } from '../../types';
 
@@ -7,6 +7,12 @@ interface Props {
   edges: GraphEdge[];
   onNodeClick: (node: GraphNode) => void;
   selectedId?: string | null;
+}
+
+export interface KnowledgeGraphHandle {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
 }
 
 const PALETTES = [
@@ -22,9 +28,13 @@ const PALETTES = [
 
 const SELECTED = { fill: 'rgba(20,184,166,0.22)', stroke: '#14B8A6', glow: 'rgba(20,184,166,0.7)' };
 
-export default function KnowledgeGraph({ nodes, edges, onNodeClick, selectedId }: Props) {
+const KnowledgeGraph = forwardRef<KnowledgeGraphHandle, Props>(function KnowledgeGraph(
+  { nodes, edges, onNodeClick, selectedId },
+  ref
+) {
   const svgRef = useRef<SVGSVGElement>(null);
   const simRef = useRef<d3.Simulation<d3.SimulationNodeDatum, undefined> | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const tagColorMap = useRef<Map<string, number>>(new Map());
 
   const getPaletteIndex = useCallback((tag?: string) => {
@@ -34,6 +44,21 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, selectedId }
     }
     return tagColorMap.current.get(tag)!;
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => {
+      if (!svgRef.current || !zoomRef.current) return;
+      d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.scaleBy, 1.4);
+    },
+    zoomOut: () => {
+      if (!svgRef.current || !zoomRef.current) return;
+      d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.scaleBy, 0.7);
+    },
+    resetZoom: () => {
+      if (!svgRef.current || !zoomRef.current) return;
+      d3.select(svgRef.current).transition().duration(400).call(zoomRef.current.transform, d3.zoomIdentity);
+    },
+  }));
 
   useEffect(() => {
     if (!svgRef.current || nodes.length === 0) return;
@@ -52,6 +77,7 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, selectedId }
       .scaleExtent([0.08, 5])
       .on('zoom', (event) => g.attr('transform', event.transform));
     svg.call(zoom);
+    zoomRef.current = zoom;
 
     // Defs — glow filter + arrowhead
     const defs = svg.append('defs');
@@ -216,4 +242,6 @@ export default function KnowledgeGraph({ nodes, edges, onNodeClick, selectedId }
       style={{ background: 'transparent' }}
     />
   );
-}
+});
+
+export default KnowledgeGraph;
